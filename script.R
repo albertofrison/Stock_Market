@@ -33,13 +33,74 @@ df_GSPC <- df_GSPC %>%
 
 df_GSPC$Daily_Returns <- c(NA, (df_GSPC$Close[-1] / df_GSPC$Close[-nrow(df_GSPC)] - 1)*100)
 
-head (df_GSPC)
-summary (df_GSPC)
 
-hist (df_GSPC$Daily_Returns, breaks = 100)
-?hist
+################################################################################
+# RENDIMENTI GIORNALIERI
+returns <- df_GSPC$Daily_Returns
+
+# Calcolo della media e deviazione standard
+mu <- mean(returns, na.rm = T)
+sigma <- sd(returns, na.rm = T)
+
+# Creazione dell'istogramma con curva gaussiana
+ggplot(data.frame(returns), aes(x = returns)) +
+  geom_histogram(aes(y = ..density..), bins = 300, fill = "gold", alpha = 0.5, color = "black") +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sigma), color = "blue", size = 0.5) +
+  geom_vline(xintercept =  mu) +
+  geom_vline(xintercept =  mu + 6 *sigma) +
+  geom_vline(xintercept =  mu - 6 *sigma) +
+  labs(title = "Istogramma dei Rendimenti con Curva Normale",
+       x = "Rendimento",
+       y = "Densità") +
+  theme_minimal()
 
 
+qqnorm(returns)
+qqline(returns, col = 2)
+
+
+################################################################################
+# RENDIMENTI MENSILI
+df_GSPC$Month_Year <- format(df_GSPC$Date, "%Y-%m")
+
+monthly_returns <- df_GSPC %>%
+  group_by(Month_Year) %>%
+  summarise(Last_Close = last(Close)) %>%
+  ungroup()
+
+
+monthly_returns$Monthly_Return <- c(NA, (monthly_returns$Last_Close[-1] / monthly_returns$Last_Close[-nrow(monthly_returns)] -1) *100  )
+
+summary (monthly_returns)
+mean(monthly_returns$Monthly_Return, na.rm = T)
+sd(monthly_returns$Monthly_Return, na.rm = T)
+hist(monthly_returns$Monthly_Return, breaks = 100, freq = F)
+curve(dnorm(x, mean= mean(monthly_returns$Monthly_Return), sd= sd (monthly_returns$Monthly_Return)), lwd=2, add=TRUE)
+?curve
+?dnorm
+qqnorm(monthly_returns$Monthly_Return)
+qqline(monthly_returns$Monthly_Return, col = 2)
+
+
+# Generazione di un esempio di rendimenti mensili
+returns <- monthly_returns$Monthly_Return
+
+# Calcolo della media e deviazione standard
+mu <- mean(returns, na.rm = T)
+sigma <- sd(returns, na.rm = T)
+
+# Creazione dell'istogramma con curva gaussiana
+ggplot(data.frame(returns), aes(x = returns)) +
+  geom_histogram(aes(y = ..density..), bins = 100, fill = "gold", alpha = 0.5, color = "black") +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sigma), color = "blue", size = 1.2) +
+  labs(title = "Istogramma dei Rendimenti con Curva Normale",
+       x = "Rendimento",
+       y = "Densità") +
+  theme_minimal()
+
+
+
+################################################################################
 # Aggiungere una colonna con l'anno
 df_GSPC$Year <- format(df_GSPC$Date, "%Y")
 
