@@ -9,12 +9,14 @@
 # LIBRARIES & INITIALIZATION
 library (tidyverse)
 library(quantmod)
+library(scales)
 
 rm (list = ls()) # cleans up objects in the environment
+################################################################################
 
 
 ################################################################################
-
+# DATA WRANGLIND AND CLEANING
 getSymbols(Symbols = c("^GSPC"), src = "yahoo", from = "1900-01-01", to = Sys.Date())
 head (GSPC)
 
@@ -22,41 +24,56 @@ head (GSPC)
 df_GSPC <- data.frame (Date = index(GSPC), coredata(GSPC))
 colnames(df_GSPC) <- c ("Date", "Open", "High", "Low", "Close", "Volume", "Adjusted")
 
+
 # SELECTING THE FIRST ENTRY OF THE HISTORICAL DATA TO EVENTUALLY PERFORM AN INDEXING CALCULATION
 first_Date <- min(df_GSPC$Date)
 first_Close <- df_GSPC$Close [df_GSPC$Date == first_Date]
-
 
 df_GSPC <- df_GSPC %>%
   mutate (Close_Index = Close / first_Close * 100) %>%
   select (Date, Close, Close_Index)
 
-df_GSPC$Daily_Returns <- c(NA, (df_GSPC$Close[-1] / df_GSPC$Close[-nrow(df_GSPC)] - 1)*100)
 
+
+# ADDING DAILY RETURNS (SETTING THE DAY TO 0)
+df_GSPC$Daily_Returns <- c(0, (df_GSPC$Close[-1] / df_GSPC$Close[-nrow(df_GSPC)] - 1)*100)
+
+head (df_GSPC)
+summary (df_GSPC)
 
 ################################################################################
-# RENDIMENTI GIORNALIERI
+# SOME STATISTICAL ANALYSIS
+# DAILY RETURNS
 returns <- df_GSPC$Daily_Returns
 
-# Calcolo della media e deviazione standard
+# LET'S CALCULATE THE MEAN AND THE STANDAR DEVIATION OF THE DAILY RETURNS
 mu <- mean(returns, na.rm = T)
 sigma <- sd(returns, na.rm = T)
 
-# Creazione dell'istogramma con curva gaussiana
+mu # this is not 3% is 0.03%
+sigma
+
+# LET'S VISUALIZE TWO THINGS
+# 1. THE DISTRIBUTION OF RETURNS
+# 2. A NORMAL DISTRIBUTIONS, HAVING MU AND SIGMA AS PARAMETERS
+
 ggplot(data.frame(returns), aes(x = returns)) +
-  geom_histogram(aes(y = ..density..), bins = 300, fill = "gold", alpha = 0.5, color = "black") +
-  stat_function(fun = dnorm, args = list(mean = mu, sd = sigma), color = "blue", size = 0.5) +
-  geom_vline(xintercept =  mu) +
-  geom_vline(xintercept =  mu + 6 *sigma) +
-  geom_vline(xintercept =  mu - 6 *sigma) +
-  labs(title = "Istogramma dei Rendimenti con Curva Normale",
-       x = "Rendimento",
+  geom_histogram(aes(y = after_stat(density)), bins = 300, fill = "gold", alpha = 0.5, color = "black", linewidth = 0.05) +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sigma), color = "blue", linewidth = 0.2) +
+  geom_vline(xintercept =  mu, size = 0.2, color = "black", linewidth = 0.2,  linetype = "twodash") +
+  geom_vline(xintercept =  mu + 6 *sigma, color = "blue", linewidth = 0.2, linetype = "dashed") +
+  geom_vline(xintercept =  mu - 6 *sigma, color = "red", linewidth = 0.2, linetype = "dashed") +
+  labs(title = "Distribuzione dei Rendimenti Storici VS Curva Normale",
+       subtitle = paste("S&P500 - Rendimenti giornalieri storici vs Curva Normale con Parametri pari Rendimento Medio=", percent(mu/100, accuracy = 0.01), " Deviazione STD= ", format (sigma) ),
+       x = "Rendimento Giornaliero (%)",
        y = "Densità") +
   theme_minimal()
 
+#GGPLOT LINETYPES: "blank", "solid", "dashed", "dotted", "dotdash", "longdash", and "twodash"
+
 
 qqnorm(returns)
-qqline(returns, col = 2)
+qqline(returns, col = "red")
 
 
 ################################################################################
