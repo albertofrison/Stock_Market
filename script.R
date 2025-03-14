@@ -78,6 +78,7 @@ qqline(returns, col = "red")
 
 ################################################################################
 # RENDIMENTI MENSILI
+
 df_GSPC$Month_Year <- format(df_GSPC$Date, "%Y-%m")
 
 monthly_returns <- df_GSPC %>%
@@ -85,37 +86,66 @@ monthly_returns <- df_GSPC %>%
   summarise(Last_Close = last(Close)) %>%
   ungroup()
 
-
-monthly_returns$Monthly_Return <- c(NA, (monthly_returns$Last_Close[-1] / monthly_returns$Last_Close[-nrow(monthly_returns)] -1) *100  )
-
-summary (monthly_returns)
-mean(monthly_returns$Monthly_Return, na.rm = T)
-sd(monthly_returns$Monthly_Return, na.rm = T)
-hist(monthly_returns$Monthly_Return, breaks = 100, freq = F)
-curve(dnorm(x, mean= mean(monthly_returns$Monthly_Return), sd= sd (monthly_returns$Monthly_Return)), lwd=2, add=TRUE)
-?curve
-?dnorm
-qqnorm(monthly_returns$Monthly_Return)
-qqline(monthly_returns$Monthly_Return, col = 2)
-
-
-# Generazione di un esempio di rendimenti mensili
+monthly_returns$Monthly_Return <- c(0, (monthly_returns$Last_Close[-1] / monthly_returns$Last_Close[-nrow(monthly_returns)] -1) *100  )
 returns <- monthly_returns$Monthly_Return
 
+qqnorm(returns)
+qqline(returns, col = "gold")
+
 # Calcolo della media e deviazione standard
-mu <- mean(returns, na.rm = T)
+mu <- mean(returns, na.rm = T) 
 sigma <- sd(returns, na.rm = T)
 
 # Creazione dell'istogramma con curva gaussiana
-ggplot(data.frame(returns), aes(x = returns)) +
-  geom_histogram(aes(y = ..density..), bins = 100, fill = "gold", alpha = 0.5, color = "black") +
-  stat_function(fun = dnorm, args = list(mean = mu, sd = sigma), color = "blue", size = 1.2) +
-  labs(title = "Istogramma dei Rendimenti con Curva Normale",
-       x = "Rendimento",
-       y = "Densità") +
+hist_chart <- ggplot(data.frame(returns), aes(x = returns)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 300, fill = "gold", alpha = 0.5, color = "black", linewidth = 0.05) +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sigma), color = "blue", linewidth = 0.4) +
+  geom_vline(xintercept =  mu, size = 0.2, color = "black", linewidth = 0.4,  linetype = "twodash") +
+  geom_vline(xintercept =  mu + 5.5 *sigma, color = "blue", linewidth = 0.4, linetype = "dashed") +
+  geom_vline(xintercept =  mu - 5.5 *sigma, color = "red", linewidth = 0.4, linetype = "dashed") +
+  geom_point(aes(x = -30, y = 0.0025), color = "red", size = 15, stroke = 0.5, shape = 1) + 
+  geom_point(aes(x = 36.5, y = 0.0025), color = "red", size = 35, stroke = 0.5, shape = 1) + 
+  labs(title = "Distribuzione dei Rendimenti Storici VS Curva Normale",
+       subtitle = paste("S&P500 - Rendimenti mensili storici vs Curva Normale con Parametri pari Rendimento Medio=", percent(mu/100, accuracy = 0.01), " Deviazione STD= ", percent(sigma/100, accuracy = 0.01) ),
+       x = "Rendimento Mensile Medio (%)",
+       y = "Densità",
+       caption = "Code by Alberto Frison | GitHub: github.com/albertofrison/Stock_Market") +
+  theme_minimal()
+
+hist_chart
+df_returns <- data.frame(Value = returns)
+
+df_returns <- df_returns %>%
+  mutate(Theoretical = qqnorm(Value, plot.it = FALSE)$x,
+         Sample = qqnorm(Value, plot.it = FALSE)$y) %>%
+    arrange(Theoretical) 
+
+bottom_left <- df_returns[1:8, ]
+top_right <- df_returns[(nrow(df_returns) - 4):nrow(df_returns), ]
+
+# Compute centers for circles
+center_bottom_left <- colMeans(bottom_left)
+center_top_right <- colMeans(top_right)
+
+# Create the QQ plot
+qq_chart <- ggplot(df_returns, aes(x = Theoretical, y = Sample)) +
+  geom_point(color = "blue", size = 2, alpha = 0.6) +  # Scatter points
+  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed") +  # Trend line
+  geom_point(aes(y = center_bottom_left[1], x = center_bottom_left[2]), color = "red", size = 80, stroke = 0.5, shape = 1) +  # Circle for bottom left
+  geom_point(aes(y = center_top_right[1], x = center_top_right[2]), color = "red", size = 80, stroke = 0.5, shape = 1) +  # Circle for top right
+  labs(title = "I rendimenti mensili dello SP500 non sono distribuiti normalmente",
+       subtitle = "Quanto più i valori in blu si distanziano dalla retta nera, tanto meno la distribuzione dei rendimenti segue una normale",
+       x = "Quantili Normale",
+       y = "Quantili Rendimenti Mensili") +
   theme_minimal()
 
 
+library(patchwork)
+install.packages("patchwork")
+hist_chart
+qq_chart
+
+hist_chart + qq_chart + plot_layout(nrow = 1, ncol = 2)
 
 ################################################################################
 # Aggiungere una colonna con l'anno
