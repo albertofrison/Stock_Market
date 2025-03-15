@@ -17,40 +17,59 @@ rm (list = ls()) # cleans up objects in the environment
 
 ################################################################################
 # DATA WRANGLIND AND CLEANING
+
 getSymbols(Symbols = c("^GSPC"), src = "yahoo", from = "1900-01-01", to = Sys.Date())
-head (GSPC)
+getSymbols(Symbols = c("^SP500TR"), src = "yahoo", from = "1900-01-01", to = Sys.Date()) # TOTAL RETURN INDEX
+
 
 # CONVERTING INTO A DATAFRAME
 df_GSPC <- data.frame (Date = index(GSPC), coredata(GSPC))
 colnames(df_GSPC) <- c ("Date", "Open", "High", "Low", "Close", "Volume", "Adjusted")
 
+df_SP500TR <- data.frame(Date = index (SP500TR), coredata (SP500TR))
+colnames(df_SP500TR) <- c ("Date", "Open", "High", "Low", "Close", "Volume", "Adjusted")
+
+# df_binded <- inner_join (df_SP500TR, df_GSPC, by = "Date", suffix = c("TR", "IN"))
+
 
 # SELECTING THE FIRST ENTRY OF THE HISTORICAL DATA TO EVENTUALLY PERFORM AN INDEXING CALCULATION
-first_Date <- min(df_GSPC$Date)
-first_Close <- df_GSPC$Close [df_GSPC$Date == first_Date]
+# first_Date <- min(df_GSPC$Date)
+# first_Close <- df_GSPC$Close [df_GSPC$Date == first_Date]
+# 
+# df_GSPC <- df_GSPC %>%
+#   mutate (Close_Index = Close / first_Close * 100) %>%
+#   select (Date, Close, Close_Index)
 
-df_GSPC <- df_GSPC %>%
-  mutate (Close_Index = Close / first_Close * 100) %>%
-  select (Date, Close, Close_Index)
 
 
+# ATTENTION HERE WE HAVE:
+# 1. THE INDEX SINCE 1928 BUT WITH NO DIVIDENDS REINVESTED
+# 2. THE INDEX TOTAL RETURN, BUT JUST FROM 1988
 
 # ADDING DAILY RETURNS (SETTING THE DAY TO 0)
 df_GSPC$Daily_Returns <- c(0, (df_GSPC$Close[-1] / df_GSPC$Close[-nrow(df_GSPC)] - 1)*100)
+df_SP500TR$Daily_Returns <- c(0, (df_SP500TR$Close[-1] / df_SP500TR$Close[-nrow(df_SP500TR)] - 1)*100)
 
 head (df_GSPC)
 summary (df_GSPC)
 
+head (df_SP500TR)
+summary (df_SP500TR)
+
+
 ################################################################################
 # SOME STATISTICAL ANALYSIS
 # DAILY RETURNS
+
+# CHOOSE HERE THE INDEX YOU WANT
 returns <- df_GSPC$Daily_Returns
+returns <- df_SP500TR$Daily_Returns
 
 # LET'S CALCULATE THE MEAN AND THE STANDAR DEVIATION OF THE DAILY RETURNS
 mu <- mean(returns, na.rm = T)
 sigma <- sd(returns, na.rm = T)
 
-mu # this is not 3% is 0.03%
+mu 
 sigma
 
 # LET'S VISUALIZE TWO THINGS
@@ -80,8 +99,9 @@ qqline(returns, col = "red")
 # RENDIMENTI MENSILI
 
 df_GSPC$Month_Year <- format(df_GSPC$Date, "%Y-%m")
+df_SP500TR$Month_Year <- format(df_SP500TR$Date, "%Y-%m")
 
-monthly_returns <- df_GSPC %>%
+monthly_returns <- df_SP500TR %>%
   group_by(Month_Year) %>%
   summarise(Last_Close = last(Close)) %>%
   ungroup()
@@ -89,6 +109,7 @@ monthly_returns <- df_GSPC %>%
 monthly_returns$Monthly_Return <- c(0, (monthly_returns$Last_Close[-1] / monthly_returns$Last_Close[-nrow(monthly_returns)] -1) *100  )
 returns <- monthly_returns$Monthly_Return
 
+summary (returns)
 qqnorm(returns)
 qqline(returns, col = "gold")
 
@@ -98,13 +119,13 @@ sigma <- sd(returns, na.rm = T)
 
 # Creazione dell'istogramma con curva gaussiana
 hist_chart <- ggplot(data.frame(returns), aes(x = returns)) +
-  geom_histogram(aes(y = after_stat(density)), bins = 300, fill = "gold", alpha = 0.5, color = "black", linewidth = 0.05) +
+  geom_histogram(aes(y = after_stat(density)), bins = 100, fill = "gold", alpha = 0.5, color = "black", linewidth = 0.05) +
   stat_function(fun = dnorm, args = list(mean = mu, sd = sigma), color = "blue", linewidth = 0.4) +
   geom_vline(xintercept =  mu, size = 0.2, color = "black", linewidth = 0.4,  linetype = "twodash") +
   geom_vline(xintercept =  mu + 5.5 *sigma, color = "blue", linewidth = 0.4, linetype = "dashed") +
   geom_vline(xintercept =  mu - 5.5 *sigma, color = "red", linewidth = 0.4, linetype = "dashed") +
-  geom_point(aes(x = -30, y = 0.0025), color = "red", size = 15, stroke = 0.5, shape = 1) + 
-  geom_point(aes(x = 36.5, y = 0.0025), color = "red", size = 35, stroke = 0.5, shape = 1) + 
+  #geom_point(aes(x = -30, y = 0.0025), color = "red", size = 15, stroke = 0.5, shape = 1) + 
+  #geom_point(aes(x = 36.5, y = 0.0025), color = "red", size = 35, stroke = 0.5, shape = 1) + 
   labs(title = "Distribuzione dei Rendimenti Storici VS Curva Normale",
        subtitle = paste("S&P500 - Rendimenti mensili storici vs Curva Normale con Parametri pari Rendimento Medio=", percent(mu/100, accuracy = 0.01), " Deviazione STD= ", percent(sigma/100, accuracy = 0.01) ),
        x = "Rendimento Mensile Medio (%)",
@@ -141,7 +162,6 @@ qq_chart <- ggplot(df_returns, aes(x = Theoretical, y = Sample)) +
 
 
 library(patchwork)
-install.packages("patchwork")
 hist_chart
 qq_chart
 
