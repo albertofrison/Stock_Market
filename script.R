@@ -1,12 +1,11 @@
-################################################################################
+# INTRODUCTION #################################################################
 # STOCK MARKET BY ALBERTO FRISON
 # R PROJECT TO ANALYSE HISTORICAL MARKET DATA
 # DONE WITH ♥ BY ALBERTO FRISON
 ################################################################################
 
 
-################################################################################
-# LIBRARIES & INITIALIZATION
+# LIBRARIES AND INITIALIZATION #################################################
 library (tidyverse)
 library(quantmod)
 library(scales)
@@ -15,8 +14,7 @@ rm (list = ls()) # cleans up objects in the environment
 ################################################################################
 
 
-################################################################################
-# DATA WRANGLIND AND CLEANING
+# DATA WRANGLIND AND CLEANING###################################################
 
 getSymbols(Symbols = c("^GSPC"), src = "yahoo", from = "1900-01-01", to = Sys.Date())
 getSymbols(Symbols = c("^SP500TR"), src = "yahoo", from = "1900-01-01", to = Sys.Date()) # TOTAL RETURN INDEX
@@ -93,6 +91,29 @@ ggplot(data.frame(returns), aes(x = returns)) +
 
 qqnorm(returns)
 qqline(returns, col = "red")
+
+
+################################################################################
+# DAILY RETURNS, ARRANGED
+
+
+tail (df_GSPC)
+
+date_da_evidenziare <- as.Date(c ("2025-04-09","2025-04-08", "2025-04-07"))
+
+df_GSPC$Date <- as.Date(df_GSPC$Date) # Assumendo formato standard YYYY-MM-DD
+
+print(date_da_evidenziare %in% df_GSPC$Date)
+
+df_GSPC %>% 
+  arrange(Daily_Returns) %>% 
+  mutate(Rank = row_number()) %>%
+  ggplot () +
+  geom_point (aes (x = Rank, y = Daily_Returns, color = ifelse(Date %in% date_da_evidenziare, "blue", "yellow"))) 
+  #scale_color_manual(values = c("Evidenziato" = "blue", "Standard" = "white"), name = "Data Specifica")
+
+
+df_GSPC$Date
 
 
 ################################################################################
