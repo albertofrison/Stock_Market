@@ -95,25 +95,63 @@ qqline(returns, col = "red")
 
 ################################################################################
 # DAILY RETURNS, ARRANGED
+head (df_GSPC)
 
+# Date della settimana estrema in aprile 2025
+date_da_evidenziare <- as.Date(c("2025-04-09", "2025-04-04", "2025-04-03"))
+df_GSPC$Date <- as.Date(df_GSPC$Date)
 
-tail (df_GSPC)
-
-date_da_evidenziare <- as.Date(c ("2025-04-09","2025-04-08", "2025-04-07"))
-
-df_GSPC$Date <- as.Date(df_GSPC$Date) # Assumendo formato standard YYYY-MM-DD
-
-print(date_da_evidenziare %in% df_GSPC$Date)
+# Plot
+df_GSPC %>%
+  arrange(Daily_Returns) %>%
+  mutate(
+    Rank = row_number(),
+    Evidenziata = Date %in% date_da_evidenziare,
+    Etichetta = ifelse(Evidenziata, format(Date, "%d %b"), NA)
+  ) %>%
+  ggplot() +
+  # Tutti gli altri punti
+  geom_point(aes(x = Rank, y = Daily_Returns), color = "gray80", size = 1.5) +
+  # Punti evidenziati
+  geom_point(data = ~filter(., Evidenziata),
+             aes(x = Rank, y = Daily_Returns), color = "blue", size = 3) +
+  # Etichette
+  geom_text(data = ~filter(., Evidenziata),
+            aes(x = Rank, y = Daily_Returns, label = format(Date, "%d %b")),
+            hjust = -0.2, vjust = 0,
+            size = 3.5) +
+  labs(
+    title = "Estrema volatilità nello S&P 500",
+    subtitle = "Nell'ultima settimana di trading il 3 e 4 aprile sono stati tra i peggiori giorni della storia,\nmentre il 9 aprile tra i migliori. Volatilità all'estremo!!",
+    x = "Rank (dal peggiore al migliore rendimento giornaliero al 1928 al 09 aprile 2025)",
+    y = "Rendimento giornaliero",
+    caption = "Fatto con ❤️ da Alberto Frison • github.com/albertofrison/Stock_Market"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(margin = margin(b = 10), size = 12),
+    plot.caption = element_text(face = "italic", size = 10, color = "gray40"),
+    axis.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
 
 df_GSPC %>% 
-  arrange(Daily_Returns) %>% 
-  mutate(Rank = row_number()) %>%
-  ggplot () +
-  geom_point (aes (x = Rank, y = Daily_Returns, color = ifelse(Date %in% date_da_evidenziare, "blue", "yellow"))) 
-  #scale_color_manual(values = c("Evidenziato" = "blue", "Standard" = "white"), name = "Data Specifica")
+  nrow()
 
+df_GSPC %>%
+  arrange(Daily_Returns) %>%
+  mutate(
+    Rank = row_number(),
+    Evidenziata = Date %in% date_da_evidenziare,
+    Etichetta = ifelse(Evidenziata, format(Date, "%d %b"), NA)
+  ) %>% 
+  filter (Date %in% date_da_evidenziare)
 
-df_GSPC$Date
+24434 - 24424
+24434 / (365 - 52*2)
+
+ggsave("sp500_volatility.png", width = 6, height = 6, dpi = 300)
 
 
 ################################################################################
