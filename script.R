@@ -88,7 +88,6 @@ ggplot(data.frame(returns), aes(x = returns)) +
 
 #GGPLOT LINETYPES: "blank", "solid", "dashed", "dotted", "dotdash", "longdash", and "twodash"
 
-
 qqnorm(returns)
 qqline(returns, col = "red")
 
@@ -97,6 +96,12 @@ qqline(returns, col = "red")
 # DAILY RETURNS, ARRANGED
 head (df_GSPC)
 
+# Date della settimana estrema in aprile 2025
+date_da_evidenziare <- as.Date(c("2025-04-09", "2025-04-04", "2025-04-03"))
+df_GSPC$Date <- as.Date(df_GSPC$Date)
+
+
+# GIORNATE STRAORDINARIE! APRILE 2025 ##########################################
 # Date della settimana estrema in aprile 2025
 date_da_evidenziare <- as.Date(c("2025-04-09", "2025-04-04", "2025-04-03"))
 df_GSPC$Date <- as.Date(df_GSPC$Date)
@@ -153,6 +158,10 @@ df_GSPC %>%
 
 ggsave("sp500_volatility.png", width = 6, height = 6, dpi = 300)
 
+24434 - 24424
+24434 / (365 - 52*2)
+
+ggsave("sp500_volatility.png", width = 6, height = 6, dpi = 300)
 
 ################################################################################
 # RENDIMENTI MENSILI
@@ -198,7 +207,7 @@ df_returns <- data.frame(Value = returns)
 df_returns <- df_returns %>%
   mutate(Theoretical = qqnorm(Value, plot.it = FALSE)$x,
          Sample = qqnorm(Value, plot.it = FALSE)$y) %>%
-    arrange(Theoretical) 
+  arrange(Theoretical) 
 
 bottom_left <- df_returns[1:8, ]
 top_right <- df_returns[(nrow(df_returns) - 4):nrow(df_returns), ]
@@ -226,7 +235,7 @@ qq_chart
 
 hist_chart + qq_chart + plot_layout(nrow = 1, ncol = 2)
 
-################################################################################
+#LATO OSCURO DEGLI INVESTIMENTI - PRESO DA THE BULL !###########################
 # Aggiungere una colonna con l'anno
 df_GSPC$Year <- format(df_GSPC$Date, "%Y")
 
@@ -295,3 +304,88 @@ df_binded %>%
     y = "Giorni con perdite giornaliere superiori al 1% (#)",
     caption = "Code by Alberto Frison | GitHub: github.com/albertofrison/Stock_Market"
   )
+
+
+#SP500 E MEDIE A 50 E 200 GIORNI ###############################################
+library(zoo)
+library(scales)
+
+
+# arrange the data frame by date
+df_GSPC <- df_GSPC %>% arrange(Date)
+head (df_GSPC) # check
+
+# rollmean(x, k, ...) calcola la media mobile di 'x' su finestre di 'k' periodi.
+# 'fill = NA' aggiunge NA all'inizio per avere un output della stessa lunghezza dell'input.
+# 'align = "right"' assicura che la media sia calcolata usando l'osservazione corrente e le k-1 precedenti.
+df_GSPC$SMA_50_Price <- rollmean(df_GSPC$Adjusted, k = 50, fill = NA, align = "right")
+
+# 4. Calcola la media mobile a 200 periodi
+df_GSPC$SMA_200_Price <- rollmean(df_GSPC$Adjusted, k = 200, fill = NA, align = "right")
+head (df_GSPC) # check
+
+
+data_per_plot <- df_GSPC %>%
+  filter(Date > as.Date("2016-01-01")) %>%
+  # Assicurati che le colonne SMA esistano e siano calcolate sul prezzo Adjusted
+  # (Vedi commenti nella risposta precedente se devi ricalcolarle)
+  select(Date, Adjusted, SMA_50_Price, SMA_200_Price) %>%
+  pivot_longer(
+    cols = c(Adjusted, SMA_50_Price, SMA_200_Price),
+    names_to = "Metrica",
+    values_to = "Valore"
+  ) %>%
+  # Definisci Metrica come factor per controllare ordine e labels nella legenda
+  mutate(Metrica = factor(Metrica,
+                          levels = c("Adjusted", "SMA_50_Price", "SMA_200_Price"),
+                          labels = c("Prezzo Adjusted", "SMA 50 Giorni", "SMA 200 Giorni")))
+
+
+data_per_plot %>% 
+  ggplot() +
+  geom_line (aes(x = Date, y = Valore, color= Metrica)) +
+  geom_line (aes(x = Date, y = Valore, color = Metrica)) +
+  geom_line (aes(x = Date, y = Valore, color = Metrica)) +
+  
+  # Aggiungi etichette chiare (titolo, sottotitolo, assi, legenda, fonte)
+  labs(
+    title = "Andamento Indice S&P 500 e Medie Mobili a 50 e 200 giorni",
+    subtitle = "Prezzo giornaliero con medie mobili semplici a 50 e 200 giorni (dal 2016)",
+    x = "Data",
+    y = "Valore Indice",
+    color = "Legenda:", # Titolo per la legenda del colore
+    caption = paste("Fonte Dati: Yahoo Finance - Grafico generato il:", format(Sys.time(), "%Y-%m-%d %H:%M"), "\nDone with ❤️ by Alberto Frison: https://github.com/albertofrison/Stock_Market/")
+  ) +
+  
+  # Personalizza gli assi
+  scale_x_date(
+    date_breaks = "1 year",          # Intervalli principali ogni anno
+    date_labels = "%Y",              # Mostra solo l'anno come etichetta
+    date_minor_breaks = "3 months"   # Intervalli minori ogni 3 mesi (opzionale)
+  ) +
+  scale_y_continuous(
+    labels = scales::label_number( # Formatta i numeri sull'asse Y
+      accuracy = 0.01,        # Due cifre decimali (se necessario, altrimenti usa 1)
+      big.mark = ".",         # Separatore migliaia italiano
+      decimal.mark = ","      # Separatore decimali italiano
+    ) ) +
+  
+  scale_color_manual(values = c(
+    "Prezzo Adjusted" = "black",      # Colore per la linea Adjusted
+    "SMA 50 Giorni"   = "dodgerblue", # Colore per SMA 50
+    "SMA 200 Giorni"  = "firebrick"   # Colore per SMA 200
+  )) +
+  # Applica un tema più pulito rispetto al default
+  theme_minimal(base_size = 11) + # Prova anche theme_light() o theme_bw()
+  
+  # Ulteriori personalizzazioni del tema
+  theme(
+    plot.title = element_text(face = "bold", size = rel(1)), # Titolo in grassetto e più grande
+    plot.subtitle = element_text(size = rel(1), margin = margin(b = 10)), # Sottotitolo leggermente più grande
+    legend.position = "bottom", # Sposta la legenda sotto il grafico
+    legend.title = element_text(face = "bold"), # Titolo legenda in grassetto
+    axis.title = element_text(face = "bold"), # Titoli assi in grassetto
+    plot.caption = element_text(hjust = 0, face = "italic", size = rel(0.9)) # Caption a sinistra, corsivo, più piccolo
+  )
+
+ggsave("sp500_death_cross_1.png", width = 6, height = 6, dpi = 300)
