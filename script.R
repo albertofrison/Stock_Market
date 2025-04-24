@@ -154,14 +154,6 @@ df_GSPC %>%
   ) %>% 
   filter (Date %in% date_da_evidenziare)
 
-24434 - 24424
-24434 / (365 - 52*2)
-
-ggsave("sp500_volatility.png", width = 6, height = 6, dpi = 300)
-
-24434 - 24424
-24434 / (365 - 52*2)
-
 ggsave("sp500_volatility.png", width = 6, height = 6, dpi = 300)
 
 ################################################################################
@@ -390,93 +382,3 @@ data_per_plot %>%
   )
 
 ggsave("sp500_death_cross_1.png", width = 6, height = 6, dpi = 300)
-
-
-# M2 MONEY #####################################################################
-# LIBRERIE #####################################################################
-# LIBRERIE #####################################################################
-library(quantmod)
-library(dplyr)
-library(tidyr)
-library(lubridate)
-library(ggplot2)
-library(scales)
-
-# G7 ##########################################################################
-m2_fred_codes <- c(
-  USA = "M2SL",                   # M2 USA
-  FRA = "MABMM301EZM189S",        # Eurozone (Francia via Eurozona)
-  DEU = "MABMM301EZM189S",        # Germania via Eurozona
-  ITA = "MABMM301EZM189S",        # Italia via Eurozona
-  JPN = "MABMM301JPM189S",        # Giappone
-  GBR = "MABMM301GBM189S",        # Regno Unito
-  CAN = "MABMM301CAM189S"         # Canada
-)
-
-fx_fred_codes <- c(
-  FRA = "DEXUSEU",  # Eurozona per Francia, Italia, Germania
-  DEU = "DEXUSEU",  # Eurozona
-  ITA = "DEXUSEU",  # Eurozona
-  JPN = "DEXJPUS",  # Giappone
-  GBR = "DEXUSUK",  # Regno Unito
-  CAN = "DEXCAUS",  # Canada
-  USA = NA
-)
-
-# STEP 1 – SCARICA M2 #########################################################
-getSymbols(m2_fred_codes, src = "FRED")
-getSymbols(m2_fred_codes, src = "FRED", from = as.Date("2000-01-01"), to = Sys.Date())
-
-
-m2_list <- lapply(names(m2_fred_codes), function(cc) {
-  code <- m2_fred_codes[[cc]]
-  xt <- get(code)
-  data.frame(date = index(xt), m2_local = as.numeric(xt[, 1]), country = cc)
-})
-
-m2_data <- bind_rows(m2_list) %>%
-  mutate(date = floor_date(date, "month")) %>%
-  filter(!is.na(m2_local))
-
-# STEP 2 – SCARICA FX #########################################################
-getSymbols(na.omit(fx_fred_codes), src = "FRED", from = as.Date("2000-01-01"), to = Sys.Date())
-
-fx_list <- lapply(names(fx_fred_codes), function(cc) {
-  code <- fx_fred_codes[[cc]]
-  if (!is.na(code) && exists(code)) {
-    xt <- get(code)
-    data.frame(date = index(xt), fx = as.numeric(xt[, 1]), country = cc)
-  } else {
-    NULL
-  }
-})
-
-fx_data <- bind_rows(fx_list) %>%
-  mutate(date = floor_date(date, "month")) %>%
-  group_by(country, date) %>%
-  summarise(fx = mean(fx, na.rm = TRUE), .groups = "drop")
-
-# STEP 3 – JOIN + CONVERSIONE #################################################
-m2_fx <- m2_data %>%
-  left_join(fx_data, by = c("country", "date")) %>%
-  mutate(m2_usd = if_else(country == "USA", m2_local, m2_local / fx)) %>%
-  filter(!is.na(m2_usd))
-
-# STEP 4 – AGGREGAZIONE GLOBALE ###############################################
-m2_aggregated <- m2_fx %>%
-  group_by(date) %>%
-  summarise(global_m2_usd = sum(m2_usd, na.rm = TRUE),
-            countries_included = n_distinct(country)) %>%
-  arrange(date)
-
-# STEP 5 – GRAFICO ############################################################
-tail(m2_aggregated)
-m2_aggregated %>%
-  filter (date <= "2025-02-01") %>%
-  ggplot(aes(x = date, y = global_m2_usd / 1e12)) +
-  geom_line(color = "darkblue", size = 1.1) +
-  labs(title = "Aggregated M2 - G7 Countries (USD, Monthly)",
-       subtitle = "Converted to USD using monthly exchange rates",
-       x = "Date", y = "M2 in Trillions USD") +
-  scale_y_continuous(labels = label_number(suffix = " T")) +
-  theme_minimal()
